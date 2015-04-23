@@ -1,0 +1,31 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.8	//
+Actions	othello.c	/^int Actions(board state, int player, int Xacts[], int Yacts[])$/;"	f
+AlphaBeta	othello.c	/^int AlphaBeta(board state, int depth, int alpha, int beta, int player, int * bestX, int * bestY)$/;"	f
+CanFlip	othello.c	/^int CanFlip(board state, int player, int X, int Y, int dirX, int dirY) $/;"	f
+CutoffTest	othello.c	/^int CutoffTest(board state, int depth)$/;"	f
+DoFlip	othello.c	/^void DoFlip(board state, int player, int X, int Y, int dirX, int dirY)$/;"	f
+Evaluate	othello.c	/^int Evaluate(board state)$/;"	f
+FALSE	othello.c	5;"	d	file:
+GameOver	othello.c	/^int GameOver(board state)$/;"	f
+Legal	othello.c	/^int Legal(board state, int player, int X, int Y)$/;"	f
+MakeMove	othello.c	/^void MakeMove(void)$/;"	f
+NewGame	othello.c	/^void NewGame(void)$/;"	f
+Result	othello.c	/^void Result(board oldstate, board newstate, int player, int X, int Y)$/;"	f
+TRUE	othello.c	6;"	d	file:
+Update	othello.c	/^void Update(board state, int player, int X, int Y)$/;"	f
+board	othello.c	/^typedef signed char board[8][8];$/;"	t	file:
+debug	othello.c	/^int debug = FALSE;$/;"	v
+depthlimit	othello.c	/^int depthlimit, timelimit1, timelimit2;$/;"	v
+error	othello.c	/^void error(char * msg)$/;"	f
+gamestate	othello.c	/^board gamestate;$/;"	v
+main	othello.c	/^int main(int argc, char** argv)$/;"	f
+me	othello.c	/^int me;$/;"	v
+printboard	othello.c	/^void printboard(board state, int player, int turn, int X, int Y)$/;"	f
+timelimit1	othello.c	/^int depthlimit, timelimit1, timelimit2;$/;"	v
+timelimit2	othello.c	/^int depthlimit, timelimit1, timelimit2;$/;"	v
+turn	othello.c	/^int turn;$/;"	v

@@ -27,6 +27,9 @@ typedef struct heuristics {
     int maxCorners;
     int minCorners;
 
+    int maxCornerClose;
+    int minCornerClose;
+
 } heuristics_t;
 
 // Holds the state of the game. The game board, where the last piece was placed, and the value of the game. 
@@ -49,8 +52,8 @@ void error(char * msg)
 }
 
 // Helper function to new up a heuristics struct
-heuristics_t* newHeuristics(int maxScore, int maxMoves, int maxCorners,
-                            int minScore, int minMoves, int minCorners) 
+heuristics_t* newHeuristics(int maxScore, int maxMoves, int maxCorners, int maxCornerClose,
+                            int minScore, int minMoves, int minCorners, int minCornerClose) 
 {
     heuristics_t *s = NULL;
     s = malloc(sizeof(heuristics_t));
@@ -58,11 +61,12 @@ heuristics_t* newHeuristics(int maxScore, int maxMoves, int maxCorners,
     s->maxScore = maxScore;
     s->maxMoves = maxMoves;
     s->maxCorners = maxCorners;
-    
+    s->maxCornerClose = maxCornerClose;
+
     s->minScore = minScore;
     s->minMoves = minMoves;
     s->minCorners = minCorners;
-    
+    s->minCornerClose = minCornerClose;
     return s;
 }
 
@@ -224,7 +228,9 @@ heuristics_t* calcHeuristics(state_t *b) {
 
     int minCorners = 0;
     int maxCorners = 0;
-
+	
+    int minCornerClose = 0;
+    int maxCornerClose = 0;
     for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++) {
             // Cache some variables (goddamnit 252)
@@ -249,7 +255,41 @@ heuristics_t* calcHeuristics(state_t *b) {
             }
         }
     }
-    return newHeuristics(maxScore, maxMoves, maxCorners, minScore, minMoves, minCorners);
+	
+if (b->board[0][0] == 0) {
+	if (b->board[0][1] == 1) maxCornerClose++;
+	else if (b->board[0][1] == -1) minCornerClose++;
+	if (b->board[1][1] == 1) maxCornerClose++;
+	else if (b->board[1][1] == -1) minCornerClose++;
+	if (b->board[1][0] == 1) maxCornerClose++;
+	else if (b->board[1][0] == -1) minCornerClose++;
+}
+if (b->board[0][7] == 0) {
+	if (b->board[0][6] == 1) maxCornerClose++;
+	else if (b->board[0][6] == -1) minCornerClose++;
+	if (b->board[1][6] == 1) maxCornerClose++;
+	else if (b->board[1][6] == -1) minCornerClose++;
+	if (b->board[1][7] == 1) maxCornerClose++;
+	else if (b->board[1][7] == -1) minCornerClose++;
+}
+if (b->board[7][0] == 0) {
+	if (b->board[7][1] == 1) maxCornerClose++;
+	else if (b->board[7][1] == -1) minCornerClose++;
+	if (b->board[6][1] == 1) maxCornerClose++;
+	else if (b->board[6][1] == -1) minCornerClose++;
+	if (b->board[6][0] == 1) maxCornerClose++;
+	else if (b->board[6][0] == -1) minCornerClose++;
+}
+if (b->board[7][7] == 0) {
+	if (b->board[6][7] == 1) maxCornerClose++;
+	else if (b->board[6][7] == -1) minCornerClose++;
+	if (b->board[6][6] == 1) maxCornerClose++;
+	else if (b->board[6][6] == -1) minCornerClose++;
+	if (b->board[7][6] == 1) maxCornerClose++;
+	else if (b->board[7][6] == -1) minCornerClose++;
+}
+
+    return newHeuristics(maxScore, maxMoves, maxCorners,maxCornerClose, minScore, minMoves, minCorners, minCornerClose);
 }
 
 // Evaluates an end game (or max depth) state. Weights the values appropriately. 
@@ -266,10 +306,13 @@ state_t * evaluate(state_t *b) {
     int minCorners = heuristics->minCorners;
     int maxCorners = heuristics->maxCorners;
 
+    int minCornerClose = heuristics->minCornerClose;
+    int maxCornerClose = heuristics->maxCornerClose;
+
     float coinParity = 100.0 * (maxScore - minScore) / (maxScore + minScore);
     float mobility = 0;
     float corners = 0;
-
+    float cornerClose = -12.5 * (maxCornerClose - minCornerClose);
     if (maxMoves + minMoves != 0) {
         mobility = 100.0 * (maxMoves - minMoves) / (maxMoves + minMoves);
     }
@@ -278,7 +321,7 @@ state_t * evaluate(state_t *b) {
         corners = 100.0 * (maxCorners - minCorners) / (maxCorners + minCorners);
     }
 
-    float score = (coinParity * 10)  + (800 * corners) + (80 * mobility);
+    float score = (cornerClose * 382.026) + (coinParity * 10)  + (801.724 * corners) + (78.922 * mobility);
     b->val = score;
     return b;
 }
@@ -304,15 +347,19 @@ state_t * minimax(state_t *state, int depth, int player, float alpha, float beta
         state_t *bestState = firstChild;
         generateChildren(state, player, firstChild);
         state_t *current = firstChild;
-
+	if (firstChild->x == -1) {
+		return evaluate(state);
+	}
         while (current != NULL) {
           //  printboard(current->board, player, 0, 0,0);
             float val = minimax(current, depth - 1, -1, bestVal, beta)->val;
             bestVal = MAX(bestVal, val);
-            if (beta <= bestVal) {
+           
+	    if (beta <= bestVal) {
                 break;
             }
             current->val = bestVal;
+	    
             if (bestVal == val) {
                 bestState = current;
             }
@@ -326,7 +373,9 @@ state_t * minimax(state_t *state, int depth, int player, float alpha, float beta
         state_t *bestState = firstChild;
         generateChildren(state, player, firstChild);
         state_t *current = firstChild;
-
+	if (firstChild->x == -1) {
+return evaluate(state);
+}
         while (current != NULL) {
                        // printboard(current->board, player, 0, 0,0);
 
@@ -369,7 +418,7 @@ void makeMove() {
             initialState->board[x][y] = gamestate[x][y];
     
     state_t *bestState = NULL;
-            bestState = minimax(initialState, 10, me, FLT_MIN, FLT_MAX);
+            bestState = minimax(initialState, depthlimit, me, FLT_MIN, FLT_MAX);
 
 /*
     for (int i = 1; i < 11; i++) {
@@ -379,8 +428,8 @@ void makeMove() {
         int msec = diff * 1000 / CLOCKS_PER_SEC;
         printf("Time taken %d seconds %d milliseconds for level %d searching %d states\n", msec/1000, msec%1000, i, totalStates);
     }   
-    */
-   
+    
+  */ 
     // Depth 3
    // state_t *bestState = minimax(initialState, 7, me);
  
@@ -407,7 +456,7 @@ int main(int argc, char** argv) {
     if (sscanf(inbuf, "game %1s %d %d %d", playerstring, &depthlimit, &timelimit1, &timelimit2) != 4) {
         error("Bad initial input");
     }
-    me = (playerstring[0] == 'B') ? 1 : -1;
+    if (playerstring[0] == 'B') me= 1;else me =-1;
     newGame();
     if (me == 1) {
         makeMove();

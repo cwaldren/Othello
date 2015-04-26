@@ -13,6 +13,7 @@
 int me;
 int depthlimit, timelimit1, timelimit2;
 int turn;
+int totalStates = 0;
 typedef signed char board[8][8];
 
 // Holds our different heuristics values. Min is not minimum -- just a reference to the 'min' player. Same for max.
@@ -197,7 +198,7 @@ void generateChildren(state_t *s, int player, state_t *head) {
                 current->x = x;
                 current->y = y;
                 current->next = newState();
-
+                totalStates++;
                 // printf("A child is:\n");
                 // printboard(current->board, player, 0, x, y); 
                 current = current->next;
@@ -284,7 +285,7 @@ state_t * evaluate(state_t *b) {
 
 
 
-state_t * minimax(state_t *state, int depth, int player) {
+state_t * minimax(state_t *state, int depth, int player, float alpha, float beta) {
      //  printf("Entering minimax at depth %d\n", depth);
     if (depth == 0 || GameOver(state->board)) {
         /*if (depth == 0) {
@@ -298,7 +299,7 @@ state_t * minimax(state_t *state, int depth, int player) {
 
     if (player == 1) {
        // printf("Player is 1. Attempting to generate children.\n");
-        float bestVal = FLT_MIN;
+        float bestVal = alpha;
         state_t *firstChild = newState();
         state_t *bestState = firstChild;
         generateChildren(state, player, firstChild);
@@ -306,8 +307,11 @@ state_t * minimax(state_t *state, int depth, int player) {
 
         while (current != NULL) {
           //  printboard(current->board, player, 0, 0,0);
-            float val = minimax(current, depth - 1, -1)->val;
+            float val = minimax(current, depth - 1, -1, bestVal, beta)->val;
             bestVal = MAX(bestVal, val);
+            if (beta <= bestVal) {
+                break;
+            }
             current->val = bestVal;
             if (bestVal == val) {
                 bestState = current;
@@ -317,7 +321,7 @@ state_t * minimax(state_t *state, int depth, int player) {
         return bestState;
 
     } else {
-        float bestVal = FLT_MAX;
+        float bestVal = beta;
         state_t *firstChild = newState();
         state_t *bestState = firstChild;
         generateChildren(state, player, firstChild);
@@ -326,8 +330,11 @@ state_t * minimax(state_t *state, int depth, int player) {
         while (current != NULL) {
                        // printboard(current->board, player, 0, 0,0);
 
-            float val = minimax(current, depth - 1, 1)->val;
+            float val = minimax(current, depth - 1, 1, alpha, bestVal)->val;
             bestVal = MIN(bestVal, val);
+            if (bestVal <= alpha) {
+                break;
+            }
             current->val = bestVal;
             if (bestVal == val) {
                 bestState = current;
@@ -362,14 +369,17 @@ void makeMove() {
             initialState->board[x][y] = gamestate[x][y];
     
     state_t *bestState = NULL;
-    for (int i = 1; i < 9; i++) {
+            bestState = minimax(initialState, 10, me, FLT_MIN, FLT_MAX);
+
+/*
+    for (int i = 1; i < 11; i++) {
         clock_t start = clock(), diff;
-        bestState = minimax(initialState, i, me);
+        bestState = minimax(initialState, i, me, FLT_MIN, FLT_MAX);
         diff = clock() - start;
         int msec = diff * 1000 / CLOCKS_PER_SEC;
-        printf("Time taken %d seconds %d milliseconds for level %d\n", msec/1000, msec%1000, i);
+        printf("Time taken %d seconds %d milliseconds for level %d searching %d states\n", msec/1000, msec%1000, i, totalStates);
     }   
-   
+    */
    
     // Depth 3
    // state_t *bestState = minimax(initialState, 7, me);
@@ -377,7 +387,7 @@ void makeMove() {
     Update(gamestate, me, bestState->x, bestState->y);
   
     //need pass logic tho
-    printboard(gamestate, me, turn, bestState->x, bestState->y);
+   // printboard(gamestate, me, turn, bestState->x, bestState->y);
     if (bestState->x == -1) {
         printf("pass\n");
         fflush(stdout);
@@ -393,11 +403,11 @@ int main(int argc, char** argv) {
     int X,Y;
 
     turn = 0;
-    //fgets(inbuf, 256, stdin);
-    //if (sscanf(inbuf, "game %1s %d %d %d", playerstring, &depthlimit, &timelimit1, &timelimit2) != 4) {
-      //  error("Bad initial input");
-   // }
-    me =1;// (playerstring[0] == 'B') ? 1 : -1;
+    fgets(inbuf, 256, stdin);
+    if (sscanf(inbuf, "game %1s %d %d %d", playerstring, &depthlimit, &timelimit1, &timelimit2) != 4) {
+        error("Bad initial input");
+    }
+    me = (playerstring[0] == 'B') ? 1 : -1;
     newGame();
     if (me == 1) {
         makeMove();
@@ -408,7 +418,7 @@ int main(int argc, char** argv) {
                 return 0;
             }
             Update(gamestate, -me, X, Y);
-            printboard(gamestate,-me,turn, X, Y);
+           // printboard(gamestate,-me,turn, X, Y);
 
         }
         makeMove();

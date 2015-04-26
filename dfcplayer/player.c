@@ -304,7 +304,7 @@ state_t * minimax(state_t *state, int depth, int player) {
         state_t *current = firstChild;
 
         while (current != NULL) {
-            printboard(current->board, player, 0, 0,0);
+          //  printboard(current->board, player, 0, 0,0);
             float val = minimax(current, depth - 1, -1)->val;
             bestVal = MAX(bestVal, val);
             current->val = bestVal;
@@ -323,7 +323,7 @@ state_t * minimax(state_t *state, int depth, int player) {
         state_t *current = firstChild;
 
         while (current != NULL) {
-                        printboard(current->board, player, 0, 0,0);
+                       // printboard(current->board, player, 0, 0,0);
 
             float val = minimax(current, depth - 1, 1)->val;
             bestVal = MIN(bestVal, val);
@@ -361,7 +361,7 @@ void makeMove() {
             initialState->board[x][y] = gamestate[x][y];
    
     // Depth 3
-    state_t *bestState = minimax(initialState, 7, me);
+    state_t *bestState = minimax(initialState, 4, me);
  
     Update(gamestate, me, bestState->x, bestState->y);
   
@@ -390,7 +390,7 @@ int main(int argc, char** argv) {
             if (sscanf(inbuf, "%d %d", &X, &Y) != 2) {
                 return 0;
             }
-            Update(gamestate, -me, X, Y);
+            Update(gamestate, -me, X-1, Y-1);
             printboard(gamestate,-me,turn, X, Y);
 
         }

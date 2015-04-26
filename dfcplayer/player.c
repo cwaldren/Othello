@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <float.h>
+#include <time.h>
 #define FALSE 0
 #define TRUE 1
 
@@ -359,9 +360,19 @@ void makeMove() {
     for (int x = 0; x < 8; x++)
         for (int y = 0; y < 8; y++)
             initialState->board[x][y] = gamestate[x][y];
+    
+    state_t *bestState = NULL;
+    for (int i = 1; i < 9; i++) {
+        clock_t start = clock(), diff;
+        bestState = minimax(initialState, i, me);
+        diff = clock() - start;
+        int msec = diff * 1000 / CLOCKS_PER_SEC;
+        printf("Time taken %d seconds %d milliseconds for level %d\n", msec/1000, msec%1000, i);
+    }   
+   
    
     // Depth 3
-    state_t *bestState = minimax(initialState, 4, me);
+   // state_t *bestState = minimax(initialState, 7, me);
  
     Update(gamestate, me, bestState->x, bestState->y);
   

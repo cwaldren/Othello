@@ -367,8 +367,14 @@ void makeMove() {
   
     //need pass logic tho
     printboard(gamestate, me, turn, bestState->x, bestState->y);
-    printf("%d %d\n", bestState->x, bestState->y);
-    fflush(stdout);
+    if (bestState->x == -1) {
+        printf("pass\n");
+        fflush(stdout);
+    } else {
+        printf("%d %d\n", bestState->x, bestState->y);
+        fflush(stdout);
+
+    }
 }
 int main(int argc, char** argv) {
     char inbuf[256];
@@ -390,7 +396,7 @@ int main(int argc, char** argv) {
             if (sscanf(inbuf, "%d %d", &X, &Y) != 2) {
                 return 0;
             }
-            Update(gamestate, -me, X-1, Y-1);
+            Update(gamestate, -me, X, Y);
             printboard(gamestate,-me,turn, X, Y);
 
         }

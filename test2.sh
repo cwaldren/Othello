@@ -1,2 +1,2 @@
 #!/bin/bash
-./tournament gui -human dfcplayer 3 0 0
+./tournament gui dfcplayer -human 8 0 0

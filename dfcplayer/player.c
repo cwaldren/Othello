@@ -307,7 +307,7 @@ if (b->board[7][7] == 0) {
 }
 
 // Evaluates an end game (or max depth) state. Weights the values appropriately. 
-double evaluate(state_t *b) {
+double evaluate(state_t *b, int currentPlayer) {
     heuristics_t* heuristics = calcHeuristics(b);
 
     // Cache variables so we have only 1 pointer access per var at the expense of 6 ints. No idea if worth it.
@@ -339,9 +339,8 @@ double evaluate(state_t *b) {
     }
 
     double score = (cornerClose * 382.026) + (coinParity * 10)  + (801.724 * corners) + (78.922 * mobility);
-    return score;
-//	printf("Parity: %f\nMobility:%f\nCorners:%f\nClose:%f\nTotal:%f\n\n", coinParity,mobility,corners,cornerClose,b->val);
-//    return b;
+//	printf("Parity: %f\nMobility:%f\nCorners:%f\nClose:%f\nTotal:%f\n\n", coinParity,mobility,corners,cornerClose,score*currentPlayer);
+    return score * currentPlayer;
 }
 
 
@@ -349,7 +348,7 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
 	double bestResult = -DBL_MAX;
 	state_t* gb = newState();
 	if (depth == 0 || GameOver(node->board)) {
-		return evaluate(node);
+		return evaluate(node, currentPlayer);
 	}
 	state_t* children = newState();
 //	printf("At depth %d\n", depth);
@@ -358,8 +357,7 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
 //	printf("is current null?x: %d\n", current->x);
 	while (current != NULL) {
 			//printf("wtf is hapenign\n");
-		currentPlayer = (currentPlayer == 1) ? -1 : 1;
-		alpha = -minimax(current,gb, depth - 1, currentPlayer, -beta, -alpha);
+		alpha = -minimax(current,gb, depth - 1,-currentPlayer, -beta, -alpha);
 		if (beta <= alpha) {
 			return alpha;
 		}
@@ -369,6 +367,7 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
 			//copyFirstBoardToSecond(current, bestState);
 			bestState->x = current->x;
 			bestState->y = current->y;
+		
 			//bestState = current;
 		}
 		current = current->next;
@@ -419,7 +418,7 @@ void makeMove() {
     //Update(gamestate, me, bestState->x, bestState->y);
   
     //need pass logic tho
-   // printboard(gamestate, me, turn, bestState->x, bestState->y);
+ //   printboard(gamestate, me, turn, bestState->x, bestState->y);
     if (bestState->x == -1) {
         printf("pass\n");
         fflush(stdout);
@@ -428,7 +427,8 @@ void makeMove() {
         printf("%d %d\n", bestState->x, bestState->y);
         fflush(stdout);
 	Update(gamestate, me, bestState->x, bestState->y);
-    }
+    	//printboard(gamestate, me, turn, bestState->x, bestState->y);
+	}
 }
 int main(int argc, char** argv) {
     char inbuf[256];
@@ -454,7 +454,7 @@ int main(int argc, char** argv) {
                 return 0;
             }
             Update(gamestate, -me, X, Y);
-           // printboard(gamestate,-me,turn, X, Y);
+ //           printboard(gamestate,-me,turn, X, Y);
 
         }
         makeMove();

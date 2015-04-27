@@ -1,2 +1,2 @@
 #!/bin/bash
-./tournament gui dfcplayer KautzPlayer 8 0 0
+./tournament gui dfcplayer KautzPlayer 7 0 0

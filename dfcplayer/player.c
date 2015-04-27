@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 #include <stdarg.h>
 #include <float.h>
@@ -37,7 +38,9 @@ typedef struct state {
     signed char board[8][8];
     int x;
     int y;
-    float val;
+    double alpha;
+    double beta;
+    double val;
     struct state* next;
 } state_t;
 
@@ -85,8 +88,9 @@ state_t* newState() {
 
     s->x = -1;
     s->y = -1;
+    s->alpha = 0;
+    s->beta = 0;
     s->val = 0;
-
     return s;
 }
 
@@ -188,10 +192,10 @@ void copyFirstBoardToSecond(state_t *a, state_t *b) {
 // Generates the different states that could be reachable from the current one.
 void generateChildren(state_t *s, int player, state_t *head) {
     state_t *current = head;
-  
     for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++) {
             if (Legal(s->board, player, x, y)) {
+		
                 // Copy in the current state of the game to our child.
                 copyFirstBoardToSecond(s, current);
 
@@ -203,12 +207,21 @@ void generateChildren(state_t *s, int player, state_t *head) {
                 current->y = y;
                 current->next = newState();
                 totalStates++;
-                // printf("A child is:\n");
-                // printboard(current->board, player, 0, x, y); 
+   //              printf("A child is:\n");
+ //                printboard(current->board, player, 0, x, y); 
                 current = current->next;
             }
         }
     }
+
+   current = head;
+   while (current->next != NULL) {
+	if (current->next->x == -1) {
+        	current->next = NULL;
+		break;
+	}
+   	current = current->next;
+   }
 }
 
 
@@ -233,10 +246,11 @@ heuristics_t* calcHeuristics(state_t *b) {
     int maxCornerClose = 0;
     for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++) {
-            // Cache some variables (goddamnit 252)
+           
             int player = b->board[x][y];
             int corner = isCorner(x, y);
-
+		
+            
             if (Legal(b->board, 1, x, y)) {
                 maxMoves++;
             }
@@ -293,7 +307,7 @@ if (b->board[7][7] == 0) {
 }
 
 // Evaluates an end game (or max depth) state. Weights the values appropriately. 
-state_t * evaluate(state_t *b) {
+double evaluate(state_t *b) {
     heuristics_t* heuristics = calcHeuristics(b);
 
     // Cache variables so we have only 1 pointer access per var at the expense of 6 ints. No idea if worth it.
@@ -309,10 +323,13 @@ state_t * evaluate(state_t *b) {
     int minCornerClose = heuristics->minCornerClose;
     int maxCornerClose = heuristics->maxCornerClose;
 
-    float coinParity = 100.0 * (maxScore - minScore) / (maxScore + minScore);
-    float mobility = 0;
-    float corners = 0;
-    float cornerClose = -12.5 * (maxCornerClose - minCornerClose);
+    double coinParity = 0;
+    if(maxScore + minScore !=0) {
+	coinParity = 100.0 * (maxScore - minScore) / (maxScore + minScore);
+    }
+    double mobility = 0;
+    double corners = 0;
+    double cornerClose = -12.5 * (maxCornerClose - minCornerClose);
     if (maxMoves + minMoves != 0) {
         mobility = 100.0 * (maxMoves - minMoves) / (maxMoves + minMoves);
     }
@@ -321,80 +338,44 @@ state_t * evaluate(state_t *b) {
         corners = 100.0 * (maxCorners - minCorners) / (maxCorners + minCorners);
     }
 
-    float score = (cornerClose * 382.026) + (coinParity * 10)  + (801.724 * corners) + (78.922 * mobility);
-    b->val = score;
-    return b;
+    double score = (cornerClose * 382.026) + (coinParity * 10)  + (801.724 * corners) + (78.922 * mobility);
+    return score;
+//	printf("Parity: %f\nMobility:%f\nCorners:%f\nClose:%f\nTotal:%f\n\n", coinParity,mobility,corners,cornerClose,b->val);
+//    return b;
 }
 
 
-
-state_t * minimax(state_t *state, int depth, int player, float alpha, float beta) {
-     //  printf("Entering minimax at depth %d\n", depth);
-    if (depth == 0 || GameOver(state->board)) {
-        /*if (depth == 0) {
-            printf("Since depth=0, must eval\n");
-        } else {
-           printf("Since the game is over, must eval\n");
-
-        }*/
-        return evaluate(state);
-    }
-
-    if (player == 1) {
-       // printf("Player is 1. Attempting to generate children.\n");
-        float bestVal = alpha;
-        state_t *firstChild = newState();
-        state_t *bestState = firstChild;
-        generateChildren(state, player, firstChild);
-        state_t *current = firstChild;
-	if (firstChild->x == -1) {
-		return evaluate(state);
+double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,double alpha, double beta) {
+	double bestResult = -DBL_MAX;
+	state_t* gb = newState();
+	if (depth == 0 || GameOver(node->board)) {
+		return evaluate(node);
 	}
-        while (current != NULL) {
-          //  printboard(current->board, player, 0, 0,0);
-            float val = minimax(current, depth - 1, -1, bestVal, beta)->val;
-            bestVal = MAX(bestVal, val);
-           
-	    if (beta <= bestVal) {
-                break;
-            }
-            current->val = bestVal;
-	    
-            if (bestVal == val) {
-                bestState = current;
-            }
-            current = current->next;
-        }
-        return bestState;
-
-    } else {
-        float bestVal = beta;
-        state_t *firstChild = newState();
-        state_t *bestState = firstChild;
-        generateChildren(state, player, firstChild);
-        state_t *current = firstChild;
-	if (firstChild->x == -1) {
-return evaluate(state);
+	state_t* children = newState();
+//	printf("At depth %d\n", depth);
+	generateChildren(node, currentPlayer, children);
+	state_t* current = children;
+//	printf("is current null?x: %d\n", current->x);
+	while (current != NULL) {
+			//printf("wtf is hapenign\n");
+		currentPlayer = (currentPlayer == 1) ? -1 : 1;
+		alpha = -minimax(current,gb, depth - 1, currentPlayer, -beta, -alpha);
+		if (beta <= alpha) {
+			return alpha;
+		}
+		if (alpha > bestResult)
+		{
+			bestResult = alpha;
+			//copyFirstBoardToSecond(current, bestState);
+			bestState->x = current->x;
+			bestState->y = current->y;
+			//bestState = current;
+		}
+		current = current->next;
+	}
+	return bestResult;
 }
-        while (current != NULL) {
-                       // printboard(current->board, player, 0, 0,0);
-
-            float val = minimax(current, depth - 1, 1, alpha, bestVal)->val;
-            bestVal = MIN(bestVal, val);
-            if (bestVal <= alpha) {
-                break;
-            }
-            current->val = bestVal;
-            if (bestVal == val) {
-                bestState = current;
-            }
-            current = current->next;
-        }
-        return bestState;
-    }
-}
-
-
+		
 void newGame(void)
 {
     int X, Y;
@@ -413,13 +394,15 @@ void newGame(void)
 
 void makeMove() {
     state_t *initialState = newState();
-    for (int x = 0; x < 8; x++)
-        for (int y = 0; y < 8; y++)
+    for (int x = 0; x < 8; x++) {
+        for (int y = 0; y < 8; y++){
             initialState->board[x][y] = gamestate[x][y];
-    
-    state_t *bestState = NULL;
-            bestState = minimax(initialState, depthlimit, me, FLT_MIN, FLT_MAX);
-
+	}
+     }
+    state_t *bestState = newState();
+    minimax(initialState,bestState, depthlimit, me, -DBL_MAX, DBL_MAX);
+//	printf("Alright, the best possible state is\n");
+//	printboard(bestState->board, me, 0, bestState->x, bestState->y);
 /*
     for (int i = 1; i < 11; i++) {
         clock_t start = clock(), diff;
@@ -433,7 +416,7 @@ void makeMove() {
     // Depth 3
    // state_t *bestState = minimax(initialState, 7, me);
  
-    Update(gamestate, me, bestState->x, bestState->y);
+    //Update(gamestate, me, bestState->x, bestState->y);
   
     //need pass logic tho
    // printboard(gamestate, me, turn, bestState->x, bestState->y);
@@ -441,22 +424,26 @@ void makeMove() {
         printf("pass\n");
         fflush(stdout);
     } else {
+	
         printf("%d %d\n", bestState->x, bestState->y);
         fflush(stdout);
-
+	Update(gamestate, me, bestState->x, bestState->y);
     }
 }
 int main(int argc, char** argv) {
     char inbuf[256];
     char playerstring[1];
     int X,Y;
-
     turn = 0;
     fgets(inbuf, 256, stdin);
     if (sscanf(inbuf, "game %1s %d %d %d", playerstring, &depthlimit, &timelimit1, &timelimit2) != 4) {
         error("Bad initial input");
     }
-    if (playerstring[0] == 'B') me= 1;else me =-1;
+    if (playerstring[0] == 'B') {
+	me= 1;
+    }else{	
+	 me =-1;
+	}
     newGame();
     if (me == 1) {
         makeMove();

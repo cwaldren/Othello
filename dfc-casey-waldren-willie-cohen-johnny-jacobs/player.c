@@ -5,6 +5,8 @@
 #include <stdarg.h>
 #include <float.h>
 #include <time.h>
+
+#include "bitboard.h"
 #define FALSE 0
 #define TRUE 1
 
@@ -37,9 +39,11 @@ typedef struct heuristics {
 
 } heuristics_t;
 
+typedef unsigned long long ull;
 // Holds the state of the game. The game board, where the last piece was placed, and the value of the game. 
 typedef struct state {
-    signed char board[8][8];
+    ull boardBlack;
+    ull boardWhite;
     int x;
     int y;
     double alpha;
@@ -191,6 +195,7 @@ void Update(board state, int player, int X, int Y)
         if ((i!=0 || j!=0) && CanFlip(state, player, X, Y, i, j))
         DoFlip(state, player, X, Y, i, j);
 }
+
 
 /* Our functions begin here */
 

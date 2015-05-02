@@ -440,7 +440,7 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
 //  printf("is current null?x: %d\n", current->x);
     int p;
     if (depth == 1) {
-     p = 0;
+     	p = 0;
     }else {
         p = id;
     }
@@ -450,6 +450,7 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
             return -1;
             //printf("wtf is hapenign\n");
         }
+        //recurse on child
         alpha = -minimax(current,gb, depth - 1,-currentPlayer, -beta, -alpha, p);
         if (alpha == 1 && id == globalBest->id) {
             bestState->x = current->x;
@@ -475,6 +476,7 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
         if (depth == 1)
         p++;
        
+       	//go to next child
         current = current->next;
     }
 
@@ -516,15 +518,17 @@ Time taken 3 seconds 52 milliseconds for level 10 searching 909412 states
 void makeMove() {
     globalBest = malloc(sizeof(struct pair));
     globalBest->id = 0;
-globalBest->score = -DBL_MAX;
+	globalBest->score = -DBL_MAX;
     frameClock = clock();
     clock_t beginClock = clock(), deltaClock;
+    
+
     state_t *initialState = newState();
     for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++){
             initialState->board[x][y] = gamestate[x][y];
+    	}
     }
-     }
     state_t *bestState = newState();
     /* Timelimit2 is set - overall game time */
     if (timelimit2 > 0) {

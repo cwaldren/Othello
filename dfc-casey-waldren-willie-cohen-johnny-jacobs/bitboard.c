@@ -92,7 +92,7 @@ unsigned long long get_move(int row, int col){
 unsigned get_shift(unsigned long long move){
 	int n = 0;
 	for(;move;n++, move>>=1);
-	return n-1;
+	return 63-(n-1);
 }
 
 /*
@@ -319,7 +319,7 @@ double heuristics(unsigned long long board[2], int color){
 	//TODO: see if this calculation method is correct
 	double playerCloseCorner = bit_count(board[color]&0x4281000000008142u);
 	double opponentCloseCorner = bit_count(board[abs(color-1)]&0x4281000000008142u);
-	
+
 	double closeCornerDiff = 0;
 	if ((playerCloseCorner+opponentCloseCorner) != 0) {
 		closeCornerDiff = -12.5*(playerCloseCorner-opponentCloseCorner);
@@ -531,7 +531,7 @@ void free_children(state_t* children) {
 }
 
 double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,double alpha, double beta, int id) {
-    
+
 
     if (timeUp()) {
         return -1;
@@ -541,9 +541,9 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
     double bestResult = -DBL_MAX;
     state_t* gb = new_state();
     if (depth == 0 || game_over(node->board)) {
-    	
+
         return heuristics(node->board, currentPlayer);
-    }	    		
+    }
 
     state_t* children = new_state();
 
@@ -570,6 +570,7 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
         //recurse on child
         alpha = -minimax(current,gb, depth - 1,-currentPlayer, -beta, -alpha, p);
         if (alpha == 1 && id == globalBest->id) {
+        	bestState->board = current->board;
             bestState->x = current->x;
             bestState->y = current->y;
             return -1;
@@ -584,6 +585,7 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
             globalBest->id = p;
             bestResult = alpha;
             //copyFirstBoardToSecond(current, bestState);
+            bestState->board = current->board;
             bestState->x = current->x;
             bestState->y = current->y;
 
@@ -604,7 +606,7 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
 }
 
 
-void make_move() {
+void make_move(){
 
     globalBest = malloc(sizeof(struct pair));
     globalBest->id = 0;
@@ -658,7 +660,6 @@ void make_move() {
             if (timeNeeded > dif) {
                 break;
             }
-
         }
         */
 
@@ -718,9 +719,16 @@ int main(){
             if (sscanf(inbuf, "%d %d", &x, &y) != 2) {
                 return 0;
             }
+            //printf("b:%016I64x\n",gameState[WHITE]);
+            //printf("b:%016I64x\n",gameState[BLACK]);
             unsigned long long* temp = update(gameState, get_move(x,y),abs(color-1));
             gameState[WHITE] = temp[WHITE];
             gameState[BLACK] = temp[BLACK];
+            //printf("a:%016I64x\n",gameState[WHITE]);
+            //printf("a:%016I64x\n",gameState[BLACK]);
+            /*unsigned long long board[2];
+            board[WHITE] = 0x0000201010100000;
+            board[BLACK] = 0x000010080c000000;*/
 
         }
         make_move();

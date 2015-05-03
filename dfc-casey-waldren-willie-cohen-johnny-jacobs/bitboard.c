@@ -286,27 +286,44 @@ double heuristics(unsigned long long board[2], int color){
 	//Find piece diff
 	double playerPieces = bit_count(board[color]);
 	double opponentPieces = bit_count(board[abs(color-1)]);
-	double pieceDiff = 100*(playerPieces-opponentPieces)/(playerPieces+opponentPieces);
+	double pieceDiff = 0;
+
+	if(playerPieces+opponentPieces != 0) {
+		pieceDiff = 100*(playerPieces-opponentPieces)/(playerPieces+opponentPieces);
+	}
 
 	//Find mobility diff
 	unsigned long long rBoard[2][4];
 	rBoard[WHITE][R0] = board[WHITE];
 	rBoard[BLACK][R0] = board[BLACK];
+
 	compute_rotations(rBoard); //pre-compute rotations
 	double playerMobil = bit_count(_generate_moves(rBoard, color));
 	double opponentMobil = bit_count(_generate_moves(rBoard, abs(color-1)));
-	double mobilDiff = 100*(playerMobil-opponentMobil)/(playerMobil+opponentMobil);
+	double mobilDiff = 0;
+
+	if(playerMobil+opponentMobil != 0) {
+		mobilDiff = 100*(playerMobil-opponentMobil)/(playerMobil+opponentMobil);
+	}
 
 	//Find corner diff
 	double playerCorner = iter_count(board[color]&0x8100000000000081u);
 	double opponentCorner = iter_count(board[abs(color-1)]&0x8100000000000081u);
-	double cornerDiff = 100*(playerCorner-opponentCorner)/(playerCorner+opponentCorner);
+
+	double cornerDiff = 0;
+	if ((playerCorner+opponentCorner) != 0) {
+		cornerDiff = 100*(playerCorner-opponentCorner)/(playerCorner+opponentCorner);
+	}
 
 	//Find close corner diff
 	//TODO: see if this calculation method is correct
 	double playerCloseCorner = bit_count(board[color]&0x4281000000008142u);
 	double opponentCloseCorner = bit_count(board[abs(color-1)]&0x4281000000008142u);
-	double closeCornerDiff = -12.5*(playerCloseCorner-opponentCloseCorner);
+	
+	double closeCornerDiff = 0;
+	if ((playerCloseCorner+opponentCloseCorner) != 0) {
+		closeCornerDiff = -12.5*(playerCloseCorner-opponentCloseCorner);
+	}
 
 	return (piece*pieceDiff + mobile*mobilDiff + corner*cornerDiff + closeCorner*closeCornerDiff);
 }
@@ -419,6 +436,22 @@ void generate_children(state_t* head, unsigned long long currBoard[2] , unsigned
 		previous = currentState;
 		totalStates++;
 	}
+
+	state_t* cur = head;
+	while (cur->next != NULL) {
+	if (cur->next->x == -1) {
+        	cur->next = NULL;
+		break;
+	}
+   	cur = cur->next;
+   }
+   cur = head;
+	while (cur != NULL) {
+		//printf("x,y = %d, %d\n", cur->x, cur->y);
+		cur = cur->next;
+	}
+
+
 }
 
 /***********************START Fuck functions***********************/
@@ -438,8 +471,9 @@ int timeUp() {
     return (timelimit1 - msec) < 200;
 }
 //Tests if the game has ended
-int GameOver(unsigned long long board[2]){
-	return !(generate_moves(board, WHITE)&generate_moves(board, BLACK));
+int game_over(unsigned long long board[2]){
+
+	return !(generate_moves(board, WHITE)|generate_moves(board, BLACK));
 }
 
 /************************END Fuck functions************************/
@@ -453,6 +487,7 @@ void sort_children(state_t** node, int player){
         current = current->next;
     }
 
+
     current = *node;
     double bestScore = -DBL_MAX;
     state_t* bestNode = NULL;
@@ -463,19 +498,25 @@ void sort_children(state_t** node, int player){
         }
         current = current->next;
     }
+
     if (*node == bestNode) {
         return;
     }
+
     current = *node;
     while (current != NULL) {
+    	//printf("Current val %.2f\n", current->val);
         if (current->next == bestNode) {
             current->next = bestNode->next;
             bestNode->next = *node;
             break;
         }
+
         current=current->next;
     }
+
      *node = bestNode;
+
 }
 
 void free_children(state_t* children) {
@@ -498,10 +539,10 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
 
     double bestResult = -DBL_MAX;
     state_t* gb = new_state();
-    if (depth == 0 || GameOver(node->board)) {
-
+    if (depth == 0 || game_over(node->board)) {
+    	
         return heuristics(node->board, currentPlayer);
-    }
+    }	    		
 
     state_t* children = new_state();
 

@@ -80,9 +80,9 @@ void new_game(){
 }
 
 /*
- * Convert row, col into a long long move
+ * Convert col, row into a long long move
  */
-unsigned long long get_move(int row, int col){
+unsigned long long get_move(int col, int row){
 	return (long long)0x1u<<(63-(row*8+col));
 }
 
@@ -92,7 +92,7 @@ unsigned long long get_move(int row, int col){
 unsigned get_shift(unsigned long long move){
 	int n = 0;
 	for(;move;n++, move>>=1);
-	return 63-(n-1);
+	return n-1;
 }
 
 /*
@@ -317,8 +317,8 @@ double heuristics(unsigned long long board[2], int color){
 
 	//Find close corner diff
 	//TODO: see if this calculation method is correct
-	double playerCloseCorner = bit_count(board[color]&0x4281000000008142u);
-	double opponentCloseCorner = bit_count(board[abs(color-1)]&0x4281000000008142u);
+	double playerCloseCorner = bit_count(board[color]&0x42c300000000c342u);
+	double opponentCloseCorner = bit_count(board[abs(color-1)]&0x42c300000000c342u);
 
 	double closeCornerDiff = 0;
 	if ((playerCloseCorner+opponentCloseCorner) != 0) {
@@ -337,6 +337,9 @@ unsigned long long flip(unsigned long long w, unsigned long long b, unsigned lon
 
 	unsigned long long t = move;
 	unsigned long long flip = 0;
+
+	//printf("b:%016I64x\n", w);//TODO: remove print
+	//printf("w:%016I64x\n", b);
 
 	if((move>>1&b)||(move<<1&b)){
 		//RIGHT
@@ -382,20 +385,36 @@ unsigned long long flip(unsigned long long w, unsigned long long b, unsigned lon
 }
 
 /*
- * Generate a child given current board, next move, and color to move
+ * Generate a child given current board, next move, color to move, col of move, and row of move
  */
-unsigned long long* generate_child(unsigned long long board[2][4], unsigned long long move, int color){
+unsigned long long* generate_child(unsigned long long board[2][4], unsigned long long move, int color, int x, int y){
 	unsigned long long* newBoard;
 	newBoard = malloc(sizeof(unsigned long long)*2);
 
+	//Determine appropriate mask
+	int dif = y-x<0?y-x+8:y-x;
+	int sum = y+x>7?y+x-8:y+x;
+	int sign = y-x<0?2:0;
+	int off = y+x>7?2:0;
+	//masks for r0,r90,r45,l45,r45,and l45 respectively
+	unsigned long long shiftMask[6] = {(long long)0xffu<<((7-y)*8), (long long)0xffu<<((7-x)*8), (long long)mask[dif]<<((7-dif)*8), (long long)mask[7-sum]<<((7-sum)*8), (long long)(~mask[dif]&0xffu)<<((7-dif)*8), (long long)(~mask[7-sum]&0xffu)<<((7-sum)*8)};
+
+
+	/*printf("\nx:%d\n",x);
+	printf("y:%d\n",y);
+	printf("sign:%d\n",sign);
+	printf("off:%d\n",off);
+	printf("0:%016I64x\n",shiftMask[0]);
+	printf("90:%016I64x\n",shiftMask[1]);
+	printf("r45:%016I64x\n",shiftMask[2+sign]);
+	printf("l45:%016I64x\n\n",shiftMask[3+off]);*/ //TODO: remove print
+
 	unsigned long long flipped;
 	flipped =
-			flip(board[color][R0], board[abs(color-1)][R0],move)
-			|l90(flip(board[color][R90], board[abs(color-1)][R90],r90(move)))
-			|l45(flip(board[color][R45], board[abs(color-1)][R45],r45(move)))
-			|r45(flip(board[color][L45], board[abs(color-1)][L45],l45(move)))
-			|l45(flip(board[color][R45], board[abs(color-1)][R45],r45(move)))
-			|r45(flip(board[color][L45], board[abs(color-1)][L45],l45(move)));
+			flip(board[color][R0]&shiftMask[R0], board[abs(color-1)][R0]&shiftMask[R0],move)
+			|l90(flip(board[color][R90]&shiftMask[R90], board[abs(color-1)][R90]&shiftMask[R90],r90(move)))
+			|l45(flip(board[color][R45]&shiftMask[R45+sign], board[abs(color-1)][R45]&shiftMask[R45+sign],r45(move)))
+			|r45(flip(board[color][L45]&shiftMask[L45+off], board[abs(color-1)][L45]&shiftMask[L45+off],l45(move)));
 
 	newBoard[color] = flipped|move|board[color][0]; //add flipped pieces and this move to players old board
 	newBoard[abs(color-1)] = board[abs(color-1)][0]&~flipped; //remove flipped pieces from opponents old board
@@ -405,12 +424,12 @@ unsigned long long* generate_child(unsigned long long board[2][4], unsigned long
 /*
  * Update board given current board, next move, and color to move
  */
-unsigned long long* update(unsigned long long currBoard[2], unsigned long long move, int color){
+unsigned long long* update(unsigned long long currBoard[2], unsigned long long move, int color, int x, int y){
 	unsigned long long board[2][4];
-	board[WHITE][R0] = gameState[WHITE];
-	board[BLACK][R0] = gameState[BLACK];
+	board[WHITE][R0] = currBoard[WHITE];
+	board[BLACK][R0] = currBoard[BLACK];
 	compute_rotations(board);
-	return generate_child(board, move, color);
+	return generate_child(board, move, color, x, y);
 }
 
 /*
@@ -423,13 +442,12 @@ void generate_children(state_t* head, unsigned long long currBoard[2] , unsigned
 	board[WHITE][R0] = currBoard[WHITE];
 	board[BLACK][R0] = currBoard[BLACK];
 	compute_rotations(board);
-
 	while(moves){
 		unsigned long long currMove = moves&(~moves+1);
 		int temp = get_shift(currMove);
-		previous->board = generate_child(board, currMove, color);
-		previous->x = temp/8;
-		previous->y = temp%8;
+		previous->x = 7-(temp%8);
+		previous->y = 7-(temp/8);
+		previous->board = generate_child(board, currMove, color, previous->x, previous->y);
 		moves&=moves-1;
 
 		state_t* currentState = new_state();
@@ -447,7 +465,7 @@ void generate_children(state_t* head, unsigned long long currBoard[2] , unsigned
    	cur = cur->next;
    }
    cur = head;
-	while (cur != NULL) {
+	while (cur != NULL) {//TODO: remove print
 		//printf("x,y = %d, %d\n", cur->x, cur->y);
 		cur = cur->next;
 	}
@@ -505,7 +523,7 @@ void sort_children(state_t** node, int player){
     }
 
     current = *node;
-    while (current != NULL) {
+    while (current != NULL) {//TODO: remove print
     	//printf("Current val %.2f\n", current->val);
         if (current->next == bestNode) {
             current->next = bestNode->next;
@@ -541,20 +559,19 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
     double bestResult = -DBL_MAX;
     state_t* gb = new_state();
     if (depth == 0 || game_over(node->board)) {
-
         return heuristics(node->board, currentPlayer);
     }
 
     state_t* children = new_state();
 
-    generate_children(children, node->board, generate_moves(node->board, color), color);
+    generate_children(children, node->board, generate_moves(node->board, currentPlayer), currentPlayer);
 
-    sort_children(&children, currentPlayer);
+    sort_children(&children, currentPlayer);//TODO: remove print
       //  printf("Children after:");
-
+    //TODO: remove print
    // printChildren(children);
-    state_t* current = children;
-//  printf("is current null?x: %d\n", current->x);
+    state_t* current = children;//TODO: remove print
+    //printf("is current null?x: %d\n", current->x);
     int p;
     if (depth == 1) {
      	p = 0;
@@ -564,13 +581,16 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
     while (current != NULL) {
         if (timeUp()) {
 
-            return -1;
+            return -1;//TODO: remove print
             //printf("wtf is hapenign\n");
         }
         //recurse on child
-        alpha = -minimax(current,gb, depth - 1,-currentPlayer, -beta, -alpha, p);
+        alpha = -minimax(current,gb, depth - 1, abs(currentPlayer-1), -beta, -alpha, p);
         if (alpha == 1 && id == globalBest->id) {
-        	bestState->board = current->board;
+        	bestState->board = current->board;/*//TODO: remove print
+            printf("a=1,c:%d\n",currentPlayer);
+            printf("Wbest:%016I64x\n",bestState->board[WHITE]);
+            printf("Bbest:%016I64x\n\n",bestState->board[BLACK]);*/
             bestState->x = current->x;
             bestState->y = current->y;
             return -1;
@@ -586,8 +606,15 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
             bestResult = alpha;
             //copyFirstBoardToSecond(current, bestState);
             bestState->board = current->board;
+          /*  printf("c:%d\n",currentPlayer);//TODO: remove print
+            printf("Wbest:%016I64x\n",bestState->board[WHITE]);
+            printf("Bbest:%016I64x\n",bestState->board[BLACK]);
+            printf("cmx:%d\n",bestState->x);
+            printf("cmy:%d\n",bestState->y);*/
             bestState->x = current->x;
             bestState->y = current->y;
+          /*  printf("bsx:%d\n",bestState->x);//TODO: remove print
+            printf("bsy:%d\n\n",bestState->y);*/
 
             //bestState = current;
         }
@@ -617,6 +644,8 @@ void make_move(){
 
     state_t* initialState = new_state();
     initialState->board = gameState;
+   // printf("w:%016I64x\n",initialState->board[WHITE]);//TODO: remove print
+   // printf("b:%016I64x\n",initialState->board[BLACK]);
 
     state_t* bestState = new_state();
     /* Timelimit2 is set - overall game time */
@@ -669,11 +698,13 @@ void make_move(){
     if (bestState->x == -1) {
         printf("pass\n");
         fflush(stdout);
-    } else {
+    } else {/*
+        printf("WBest:%016I64x\n",bestState->board[WHITE]);//TODO: remove print
+        printf("BBest:%016I64x\n",bestState->board[BLACK]);*/
         printf("%d %d\n", bestState->x, bestState->y);
         fflush(stdout);
 
-        unsigned long long* temp = update(gameState, get_move(bestState->x, bestState->y), color);
+        unsigned long long* temp = update(gameState, get_move(bestState->x, bestState->y), color, bestState->x, bestState->y);
         gameState[WHITE] = temp[WHITE];
         gameState[BLACK] = temp[BLACK];
     }
@@ -688,6 +719,12 @@ int main(){
     char playerstring[1];
     int x,y;
     turn = 0;
+    /*unsigned long long board[2];
+	board[WHITE] = 0x3e3efcf8f0e00808;
+	board[BLACK] = 0x000000040c1c0000;
+	printf("w:%016I64x\n", update(board, get_move(5,7), BLACK, 7,5)[WHITE]);//TODO: remove print
+	printf("b:%016I64x\n", update(board, get_move(5,7), BLACK, 7,5)[BLACK]);*/
+	//TODO: Test more
     if (fgets(inbuf, 256, stdin) == NULL){
         error("Couldn't read from inpbuf");
     }
@@ -719,17 +756,10 @@ int main(){
             if (sscanf(inbuf, "%d %d", &x, &y) != 2) {
                 return 0;
             }
-            //printf("b:%016I64x\n",gameState[WHITE]);
-            //printf("b:%016I64x\n",gameState[BLACK]);
-            unsigned long long* temp = update(gameState, get_move(x,y),abs(color-1));
+
+            unsigned long long* temp = update(gameState, get_move(x,y),abs(color-1), x, y);
             gameState[WHITE] = temp[WHITE];
             gameState[BLACK] = temp[BLACK];
-            //printf("a:%016I64x\n",gameState[WHITE]);
-            //printf("a:%016I64x\n",gameState[BLACK]);
-            /*unsigned long long board[2];
-            board[WHITE] = 0x0000201010100000;
-            board[BLACK] = 0x000010080c000000;*/
-
         }
         make_move();
     }

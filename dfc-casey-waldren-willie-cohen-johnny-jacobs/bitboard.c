@@ -385,7 +385,8 @@ unsigned long long flip(unsigned long long w, unsigned long long b, unsigned lon
  * Generate a child given current board, next move, and color to move
  */
 unsigned long long* generate_child(unsigned long long board[2][4], unsigned long long move, int color){
-	static unsigned long long newBoard[2];
+	unsigned long long* newBoard;
+	newBoard = malloc(sizeof(unsigned long long)*2);
 
 	unsigned long long flipped;
 	flipped =
@@ -707,8 +708,8 @@ int main(){
        color = WHITE;
     }
     gameClock = clock();
-   // new_game();
-	//compute_all_moves(moveTable);
+    new_game();
+	compute_all_moves(moveTable);
     if (color == BLACK) {
         make_move();
     }

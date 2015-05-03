@@ -707,8 +707,8 @@ int main(){
        color = WHITE;
     }
     gameClock = clock();
-    new_game();
-	compute_all_moves(moveTable);
+   // new_game();
+	//compute_all_moves(moveTable);
     if (color == BLACK) {
         make_move();
     }

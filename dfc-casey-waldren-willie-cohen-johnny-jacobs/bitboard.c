@@ -1,3 +1,8 @@
+/*
+ * More ideas at http://www.radagast.se/othello/howto.html
+ * Look into transition tables and multi-prob cuts
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -26,6 +31,7 @@ pair_t* globalBest;
 
 unsigned char mask[8] = {0xffu,0xfeu,0xfcu,0xf8u,0xf0u,0xe0u,0xc0u,0x80u}; //mask out, respectively, no bit, far right bit, far right 2 bits, etc.
 unsigned char moveTable[256][256][2]; //stores all moves (by row) based on [white row config][black row config][color to move]
+unsigned long long maskTable[8][8][4]; //stores all shift masks for any given move location
 unsigned long long gameState[2];
 
 
@@ -145,6 +151,31 @@ void compute_all_moves(unsigned char moves[256][256][2]){
 
 			//Compute all legal black moves given i and j
 			moves[i][j][BLACK] = compute_black_moves(i,j);
+		}
+	}
+}
+
+/*
+ * Calculate all masks for child generation (pre-computation)
+ */
+void calculate_masks(unsigned long long shiftMasks[8][8][4]){
+	for(int i = 0; i<8; i++){
+		for(int j = 0; j<8; j++){
+			int dif = j-i<0?j-i+8:j-i;
+			int sum = j+i>7?j+i-8:j+i;
+			int sign = j-i<0?0:1; //diagonal partial mask
+			int off = j+i>7?0:1; //diagonal partial mask
+
+			shiftMasks[i][j][R0] = (unsigned long long)0xffu<<((7-j)*8); //R0 mask
+			shiftMasks[i][j][R90] = (unsigned long long)0xffu<<((7-i)*8); //R90 mask
+			if(sign)
+				shiftMasks[i][j][R45] = (unsigned long long)mask[dif]<<((7-dif)*8); //R45 mask
+			else
+				shiftMasks[i][j][R45] = (unsigned long long)(~mask[dif]&0xffu)<<((7-dif)*8); //R45 mask other part diagonal
+			if(off)
+				shiftMasks[i][j][L45] = (unsigned long long)mask[7-sum]<<((7-sum)*8); //L45 mask
+			else
+				shiftMasks[i][j][L45] = (unsigned long long)(~mask[7-sum]&0xffu)<<((7-sum)*8); //L45 mask other part diagonal
 		}
 	}
 }
@@ -338,9 +369,6 @@ unsigned long long flip(unsigned long long w, unsigned long long b, unsigned lon
 	unsigned long long t = move;
 	unsigned long long flip = 0;
 
-	//printf("b:%016I64x\n", w);//TODO: remove print
-	//printf("w:%016I64x\n", b);
-
 	if((move>>1&b)||(move<<1&b)){
 		//RIGHT
 		for(unsigned char i = 0; i<8; i++){ //look right
@@ -391,30 +419,12 @@ unsigned long long* generate_child(unsigned long long board[2][4], unsigned long
 	unsigned long long* newBoard;
 	newBoard = malloc(sizeof(unsigned long long)*2);
 
-	//Determine appropriate mask
-	int dif = y-x<0?y-x+8:y-x;
-	int sum = y+x>7?y+x-8:y+x;
-	int sign = y-x<0?2:0;
-	int off = y+x>7?2:0;
-	//masks for r0,r90,r45,l45,r45,and l45 respectively
-	unsigned long long shiftMask[6] = {(long long)0xffu<<((7-y)*8), (long long)0xffu<<((7-x)*8), (long long)mask[dif]<<((7-dif)*8), (long long)mask[7-sum]<<((7-sum)*8), (long long)(~mask[dif]&0xffu)<<((7-dif)*8), (long long)(~mask[7-sum]&0xffu)<<((7-sum)*8)};
-
-
-	/*printf("\nx:%d\n",x);
-	printf("y:%d\n",y);
-	printf("sign:%d\n",sign);
-	printf("off:%d\n",off);
-	printf("0:%016I64x\n",shiftMask[0]);
-	printf("90:%016I64x\n",shiftMask[1]);
-	printf("r45:%016I64x\n",shiftMask[2+sign]);
-	printf("l45:%016I64x\n\n",shiftMask[3+off]);*/ //TODO: remove print
-
 	unsigned long long flipped;
 	flipped =
-			flip(board[color][R0]&shiftMask[R0], board[abs(color-1)][R0]&shiftMask[R0],move)
-			|l90(flip(board[color][R90]&shiftMask[R90], board[abs(color-1)][R90]&shiftMask[R90],r90(move)))
-			|l45(flip(board[color][R45]&shiftMask[R45+sign], board[abs(color-1)][R45]&shiftMask[R45+sign],r45(move)))
-			|r45(flip(board[color][L45]&shiftMask[L45+off], board[abs(color-1)][L45]&shiftMask[L45+off],l45(move)));
+			flip(board[color][R0]&maskTable[x][y][R0], board[abs(color-1)][R0]&maskTable[x][y][R0],move)
+			|l90(flip(board[color][R90]&maskTable[x][y][R90], board[abs(color-1)][R90]&maskTable[x][y][R90],r90(move)))
+			|l45(flip(board[color][R45]&maskTable[x][y][R45], board[abs(color-1)][R45]&maskTable[x][y][R45],r45(move)))
+			|r45(flip(board[color][L45]&maskTable[x][y][L45], board[abs(color-1)][L45]&maskTable[x][y][L45],l45(move)));
 
 	newBoard[color] = flipped|move|board[color][0]; //add flipped pieces and this move to players old board
 	newBoard[abs(color-1)] = board[abs(color-1)][0]&~flipped; //remove flipped pieces from opponents old board
@@ -465,8 +475,7 @@ void generate_children(state_t* head, unsigned long long currBoard[2] , unsigned
    	cur = cur->next;
    }
    cur = head;
-	while (cur != NULL) {//TODO: remove print
-		//printf("x,y = %d, %d\n", cur->x, cur->y);
+	while (cur != NULL) {
 		cur = cur->next;
 	}
 
@@ -581,16 +590,12 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
     while (current != NULL) {
         if (timeUp()) {
 
-            return -1;//TODO: remove print
-            //printf("wtf is hapenign\n");
+            return -1;
         }
         //recurse on child
         alpha = -minimax(current,gb, depth - 1, abs(currentPlayer-1), -beta, -alpha, p);
         if (alpha == 1 && id == globalBest->id) {
-        	bestState->board = current->board;/*//TODO: remove print
-            printf("a=1,c:%d\n",currentPlayer);
-            printf("Wbest:%016I64x\n",bestState->board[WHITE]);
-            printf("Bbest:%016I64x\n\n",bestState->board[BLACK]);*/
+        	bestState->board = current->board;
             bestState->x = current->x;
             bestState->y = current->y;
             return -1;
@@ -604,19 +609,9 @@ double minimax(state_t *node,state_t* bestState, int depth, int currentPlayer,do
             globalBest->score = alpha;
             globalBest->id = p;
             bestResult = alpha;
-            //copyFirstBoardToSecond(current, bestState);
             bestState->board = current->board;
-          /*  printf("c:%d\n",currentPlayer);//TODO: remove print
-            printf("Wbest:%016I64x\n",bestState->board[WHITE]);
-            printf("Bbest:%016I64x\n",bestState->board[BLACK]);
-            printf("cmx:%d\n",bestState->x);
-            printf("cmy:%d\n",bestState->y);*/
             bestState->x = current->x;
             bestState->y = current->y;
-          /*  printf("bsx:%d\n",bestState->x);//TODO: remove print
-            printf("bsy:%d\n\n",bestState->y);*/
-
-            //bestState = current;
         }
 
         if (depth == 1)
@@ -698,9 +693,7 @@ void make_move(){
     if (bestState->x == -1) {
         printf("pass\n");
         fflush(stdout);
-    } else {/*
-        printf("WBest:%016I64x\n",bestState->board[WHITE]);//TODO: remove print
-        printf("BBest:%016I64x\n",bestState->board[BLACK]);*/
+    } else {
         printf("%d %d\n", bestState->x, bestState->y);
         fflush(stdout);
 
@@ -748,6 +741,7 @@ int main(){
     gameClock = clock();
     new_game();
 	compute_all_moves(moveTable);
+	calculate_masks(maskTable);
     if (color == BLACK) {
         make_move();
     }

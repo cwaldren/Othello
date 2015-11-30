@@ -1,2 +1,2 @@
 #!/bin/bash
-./tournament text KautzPlayer KautzPlayer 4 0 0
+./tournament gui dfc-casey-waldren-willie-cohen-johnny-jacobs KautzPlayer 3 0 0
